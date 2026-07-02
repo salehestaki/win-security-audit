@@ -29,6 +29,7 @@ if (Test-Path "dist") { Remove-Item -LiteralPath "dist" -Recurse -Force }
     --name SecurityAudit `
     --onefile `
     --console `
+    --uac-admin `
     --paths "$Root\src" `
     "$Root\src\win_security_audit\__main__.py"
 

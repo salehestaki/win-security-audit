@@ -188,7 +188,7 @@ def _run_autorunsc(section: Section, autorunsc: Path) -> list[dict]:
         joined = " ".join(str(value) for value in row.values())
         if "not verified" in joined.lower() or "unsigned" in joined.lower():
             unsigned.append(row)
-        if utils.suspicious_command(joined) or utils.known_tool_name(joined) or utils.user_writable_path(joined):
+        if _autorunsc_high_signal(row):
             suspicious.append(row)
 
     section.add_finding("Autorunsc executed successfully", Status.HEALTHY, severity=0, evidence=[str(autorunsc)])
@@ -209,6 +209,16 @@ def _run_autorunsc(section: Section, autorunsc: Path) -> list[dict]:
             recommendation="Investigate matching autoruns with file hashes and timestamps.",
         )
     return rows[:500]
+
+
+def _autorunsc_high_signal(row: dict) -> bool:
+    joined = " ".join(str(value) for value in row.values())
+    lowered = joined.lower()
+    if "microsoft corporation" in lowered and "\\windows\\system32\\" in lowered and not utils.known_tool_name(joined):
+        return False
+    if lowered.endswith("\\desktop.ini"):
+        return False
+    return utils.suspicious_command(joined) or utils.known_tool_name(joined) or utils.user_writable_path(joined)
 
 
 def _run_sigcheck(section: Section, sigcheck: Path, ctx: AuditContext) -> None:

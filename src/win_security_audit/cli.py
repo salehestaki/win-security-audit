@@ -22,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-elevate", action="store_true", help="Do not request Administrator rights automatically.")
     parser.add_argument("--elevated-child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--no-sysinternals", action="store_true", help="Skip optional Sysinternals integration.")
+    parser.add_argument("--force", action="store_true", help="Run even if another audit recently completed in the same output directory.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
@@ -45,12 +46,18 @@ def main(argv: list[str] | None = None) -> int:
     print("Starting Windows Security Audit...")
     print(f"Output directory: {output_dir}")
     print(f"Administrator: {'yes' if utils.is_admin() else 'no'}")
-    report, html_path, json_path = run_audit(
-        output_dir=output_dir,
-        quick=args.quick,
-        max_file_scan=max(0, args.max_file_scan),
-        include_sysinternals=not args.no_sysinternals,
-    )
+    try:
+        guard = utils.RunGuard(output_dir, cooldown_seconds=0 if args.force else 120)
+        with guard:
+            report, html_path, json_path = run_audit(
+                output_dir=output_dir,
+                quick=args.quick,
+                max_file_scan=max(0, args.max_file_scan),
+                include_sysinternals=not args.no_sysinternals,
+            )
+    except RuntimeError as exc:
+        print(str(exc))
+        return 2
     print(f"Risk score: {report.risk_score}/100")
     print(f"HTML report: {html_path}")
     print(f"JSON report: {json_path}")

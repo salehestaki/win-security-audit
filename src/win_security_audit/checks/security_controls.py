@@ -245,8 +245,8 @@ def _analyze_defender(section: Section, defender: dict) -> None:
 
 
 def _analyze_firewall_profiles(section: Section, rows: list[dict]) -> None:
-    disabled = [row for row in rows if str(row.get("Enabled")).lower() == "false"]
-    inbound_allow = [row for row in rows if str(row.get("DefaultInboundAction")).lower() == "allow"]
+    disabled = [row for row in rows if _is_false(row.get("Enabled"))]
+    inbound_allow = [row for row in rows if _is_allow(row.get("DefaultInboundAction"))]
     if disabled:
         section.add_finding(
             "Windows Firewall profile disabled",
@@ -265,6 +265,14 @@ def _analyze_firewall_profiles(section: Section, rows: list[dict]) -> None:
         )
     if rows and not disabled and not inbound_allow:
         section.add_finding("Firewall profiles appear enabled with default inbound blocking", Status.HEALTHY, severity=0)
+
+
+def _is_false(value: object) -> bool:
+    return str(value).strip().lower() in {"false", "0", "off", "disabled", "no"}
+
+
+def _is_allow(value: object) -> bool:
+    return str(value).strip().lower() in {"allow", "2"}
 
 
 def _analyze_bitlocker(section: Section, rows: list[dict]) -> None:

@@ -79,13 +79,15 @@ foreach ($folder in $startupFolders) {
           $target = ($shortcut.TargetPath + ' ' + $shortcut.Arguments).Trim()
         } catch {}
       }
-      if (-not $target) { $target = $_.FullName }
-      $items += [pscustomobject]@{
-        Source = 'StartupFolder'
-        Location = $folder
-        Name = $_.Name
-        Command = $target
-        LastWriteTime = $_.LastWriteTimeUtc
+      if ($_.Name -ne 'desktop.ini') {
+        if (-not $target) { $target = $_.FullName }
+        $items += [pscustomobject]@{
+          Source = 'StartupFolder'
+          Location = $folder
+          Name = $_.Name
+          Command = $target
+          LastWriteTime = $_.LastWriteTimeUtc
+        }
       }
     }
   }
@@ -105,7 +107,7 @@ def _collect_scheduled_tasks(section: Section, quick: bool) -> list[dict]:
         """
 Get-ScheduledTask | ForEach-Object {
   $actions = @($_.Actions | ForEach-Object { (($_.Execute + ' ' + $_.Arguments).Trim()) }) -join '; '
-  $triggers = @($_.Triggers | ForEach-Object { $_.ToString() }) -join '; '
+  $triggers = @($_.Triggers | ForEach-Object { if ($_) { [string]$_ } }) -join '; '
   [pscustomobject]@{
     TaskPath = $_.TaskPath
     TaskName = $_.TaskName
@@ -191,8 +193,8 @@ def _analyze_autoruns(section: Section, rows: list[dict]) -> None:
     for row in rows:
         command = utils.trim(row.get("Command"), 1200)
         name = utils.trim(row.get("Name"))
-        if utils.user_writable_path(command):
-            user_path.append(row)
+    if _is_meaningful_autorun(command) and utils.user_writable_path(command):
+        user_path.append(row)
         if utils.suspicious_command(command):
             suspicious_cmd.append(row)
         if utils.startup_path(utils.trim(row.get("Location"))) and Path(name).suffix.lower() in {".ps1", ".bat", ".cmd", ".vbs", ".js", ".wsf"}:
@@ -291,14 +293,22 @@ def _analyze_tasks(section: Section, rows: list[dict]) -> None:
 
 
 def _analyze_wmi(section: Section, rows: list[dict]) -> None:
-    if rows:
+    meaningful_rows = [row for row in rows if not _known_benign_wmi_subscription(row)]
+    if meaningful_rows:
         section.add_finding(
             "WMI event subscription persistence present",
             Status.SUSPICIOUS,
             severity=8,
             description="Permanent WMI event subscriptions are uncommon on normal workstations and are often used for stealthy persistence.",
-            evidence=[f"{row.get('Type')}: {utils.trim(row.get('Name') or row.get('Command') or row.get('Query'), 400)}" for row in rows[:8]],
+            evidence=[f"{row.get('Type')}: {utils.trim(row.get('Name') or row.get('Command') or row.get('Query'), 400)}" for row in meaningful_rows[:8]],
             recommendation="Validate each subscription. Export evidence before deleting unknown filters, consumers, or bindings.",
+        )
+    elif rows:
+        section.add_finding(
+            "Only known Windows WMI subscriptions found",
+            Status.HEALTHY,
+            severity=0,
+            evidence=[f"{row.get('Type')}: {utils.trim(row.get('Name') or row.get('Query') or row.get('Consumer'), 200)}" for row in rows[:4]],
         )
 
 
@@ -324,3 +334,18 @@ def _analyze_profiles(section: Section, rows: list[dict]) -> None:
             evidence=[utils.trim(row.get("Path")) for row in rows],
             recommendation="Review profiles if PowerShell abuse is suspected.",
         )
+
+
+def _is_meaningful_autorun(command: str) -> bool:
+    suffix = Path(utils.extract_path_from_command(command)).suffix.lower()
+    return suffix in {".exe", ".dll", ".ps1", ".bat", ".cmd", ".vbs", ".js", ".wsf", ".scr", ".lnk"}
+
+
+def _known_benign_wmi_subscription(row: dict) -> bool:
+    text = " ".join(str(row.get(key, "")) for key in ["Type", "Name", "Query", "Consumer", "Command"]).lower()
+    known = [
+        "scm event log filter",
+        "msft_scmeventlogevent",
+        "scm event log consumer",
+    ]
+    return any(item in text for item in known) and not utils.suspicious_command(text) and not utils.known_tool_name(text)

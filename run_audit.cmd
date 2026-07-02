@@ -2,6 +2,12 @@
 setlocal
 cd /d "%~dp0"
 
+net session >nul 2>&1
+if not "%ERRORLEVEL%"=="0" (
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%ComSpec%' -ArgumentList '/c \"\"%~f0\" %*\"' -WorkingDirectory '%CD%' -Verb RunAs"
+  exit /b 0
+)
+
 set "EXE="
 if exist "%CD%\SecurityAudit.exe" set "EXE=%CD%\SecurityAudit.exe"
 if exist "%CD%\dist\SecurityAudit.exe" set "EXE=%CD%\dist\SecurityAudit.exe"

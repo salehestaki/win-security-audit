@@ -4,7 +4,7 @@ A lightweight Windows security audit and incident-response reporting tool. It ru
 
 ## Quick Start
 
-Double-click `run_audit.cmd` for the easiest local run. If a packaged executable is present, the launcher uses it; otherwise it falls back to the installed Python runtime.
+Double-click `run_audit.cmd` for the easiest local run. The launcher requests Administrator rights before scanning. If a packaged executable is present, the launcher uses it; otherwise it falls back to the installed Python runtime.
 
 ```powershell
 .\run_audit.cmd
@@ -42,6 +42,8 @@ reports\SecurityReport_<host>_<timestamp>.json
 - Recent Security/System event logs
 - Common dual-use/security tool indicators such as Mimikatz, PsExec, Netcat, Rubeus, SharpHound, and similar tools
 - Optional Sysinternals Autoruns/Sigcheck integration
+
+The HTML report starts with an overall risk summary and a compact section index. Each section can be opened or closed independently, and the report includes controls to open flagged sections, open all sections, or close all sections.
 
 ## Optional Sysinternals Integration
 
