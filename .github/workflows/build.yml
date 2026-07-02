@@ -10,8 +10,8 @@ jobs:
   test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Run unit tests
@@ -20,7 +20,7 @@ jobs:
           python -m unittest discover -s tests
       - name: Build executable
         run: .\build.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: SecurityAuditTool
           path: release/SecurityAuditTool.zip
