@@ -3,6 +3,8 @@ from __future__ import annotations
 import csv
 import io
 import platform
+import tempfile
+import zipfile
 from pathlib import Path
 
 from win_security_audit import powershell, utils
@@ -86,6 +88,7 @@ def _tools_dirs(project_root: Path) -> list[Path]:
 
 def _find_sysinternals_tool(tools_dirs: list[Path], base_name: str) -> Path | None:
     names = _preferred_tool_names(base_name)
+    wanted_stems = {Path(name).stem.lower() for name in names}
     for tools_dir in tools_dirs:
         for name in names:
             direct = tools_dir / name
@@ -93,12 +96,51 @@ def _find_sysinternals_tool(tools_dirs: list[Path], base_name: str) -> Path | No
                 return direct
         matches = []
         for path in tools_dir.glob("**/*.exe"):
-            if path.is_file() and path.stem.lower() in {Path(name).stem.lower() for name in names}:
+            if path.is_file() and path.stem.lower() in wanted_stems:
                 matches.append(path)
         if matches:
             matches.sort(key=lambda path: names.index(path.name.lower()) if path.name.lower() in names else 99)
             return matches[0]
+        zip_match = _extract_tool_from_zip(tools_dir, names)
+        if zip_match:
+            return zip_match
     return None
+
+
+def _extract_tool_from_zip(tools_dir: Path, names: list[str]) -> Path | None:
+    zip_paths = sorted(tools_dir.glob("**/*.zip"), key=lambda path: str(path).lower())
+    for zip_path in zip_paths:
+        try:
+            with zipfile.ZipFile(zip_path) as archive:
+                members = [member for member in archive.infolist() if not member.is_dir()]
+                for name in names:
+                    member = _find_zip_member(members, name)
+                    if not member:
+                        continue
+                    target = _zip_extract_target(zip_path, name)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    if target.exists() and target.stat().st_size == member.file_size:
+                        return target
+                    with archive.open(member) as source, target.open("wb") as destination:
+                        destination.write(source.read())
+                    return target
+        except (OSError, zipfile.BadZipFile):
+            continue
+    return None
+
+
+def _find_zip_member(members: list[zipfile.ZipInfo], name: str) -> zipfile.ZipInfo | None:
+    lowered = name.lower()
+    for member in members:
+        member_name = Path(member.filename.replace("\\", "/")).name.lower()
+        if member_name == lowered:
+            return member
+    return None
+
+
+def _zip_extract_target(zip_path: Path, name: str) -> Path:
+    safe_zip_name = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in zip_path.stem)
+    return Path(tempfile.gettempdir()) / "WinSecurityAudit" / "Sysinternals" / safe_zip_name / name
 
 
 def _preferred_tool_names(base_name: str) -> list[str]:

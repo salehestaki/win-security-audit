@@ -52,15 +52,16 @@ Sysinternals tools are not bundled with this repository. Microsoft does not offe
 - Sigcheck: <https://learn.microsoft.com/en-us/sysinternals/downloads/sigcheck>
 - Sysinternals Suite: <https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite>
 
-After downloading, extract the tools into either of these folders:
+After downloading, put the tools in either of these folders. They can be extracted `.exe` files or the original Microsoft `.zip` downloads:
 
 ```text
 Sysinternals\
 tools\sysinternals\autorunsc.exe
 tools\sysinternals\sigcheck.exe
+tools\sysinternals\SysinternalsSuite.zip
 ```
 
-The audit automatically searches the `Sysinternals` and `tools\sysinternals` folders, including subfolders. For Autoruns, it chooses the best command-line binary for the current architecture in this order:
+The audit automatically searches the `Sysinternals` and `tools\sysinternals` folders, including subfolders. If it finds a zip file, it extracts only the needed command-line executable to a temporary cache and runs it from there. For Autoruns, it chooses the best command-line binary for the current architecture in this order:
 
 - ARM64 Windows: `autorunsc64a.exe`, `autorunsc64.exe`, `autorunsc.exe`
 - 64-bit Windows: `autorunsc64.exe`, `autorunsc.exe`, `autorunsc64a.exe`

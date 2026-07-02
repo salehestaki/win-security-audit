@@ -11,8 +11,9 @@ autorunsc.exe
 autorunsc64.exe
 autorunsc64a.exe
 sigcheck.exe
+SysinternalsSuite.zip
 ```
 
-The audit also searches a root-level `Sysinternals` folder and subfolders. It selects the best Autoruns command-line binary for the current system architecture automatically.
+The audit also searches a root-level `Sysinternals` folder and subfolders. Extracted `.exe` files and original Microsoft `.zip` downloads are both supported. When a zip is found, the audit extracts only the needed command-line executable to a temporary cache.
 
 The project does not redistribute these binaries; keep their original Microsoft license terms.

@@ -1,4 +1,7 @@
 import unittest
+import tempfile
+import zipfile
+from pathlib import Path
 
 from win_security_audit import utils
 from win_security_audit.checks import sysinternals
@@ -23,6 +26,17 @@ class UtilsTests(unittest.TestCase):
         self.assertIn("autorunsc.exe", autoruns_names)
         self.assertIn("autorunsc64.exe", autoruns_names)
         self.assertEqual(sysinternals._preferred_tool_names("sigcheck"), ["sigcheck.exe"])
+
+    def test_sysinternals_zip_discovery(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            zip_path = root / "Autoruns.zip"
+            with zipfile.ZipFile(zip_path, "w") as archive:
+                archive.writestr("Autoruns/autorunsc.exe", b"fake")
+            found = sysinternals._find_sysinternals_tool([root], "autorunsc")
+            self.assertIsNotNone(found)
+            self.assertEqual(found.name.lower(), "autorunsc.exe")
+            self.assertTrue(found.exists())
 
 
 if __name__ == "__main__":
