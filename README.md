@@ -45,14 +45,28 @@ reports\SecurityReport_<host>_<timestamp>.json
 
 ## Optional Sysinternals Integration
 
-Download the official Microsoft Sysinternals tools yourself and place these files here:
+Sysinternals tools are not bundled with this repository. Microsoft does not offer redistribution licenses for third-party software packages, so users should download the official tools directly from Microsoft:
+
+- Sysinternals home: <https://learn.microsoft.com/en-us/sysinternals/>
+- Autoruns: <https://learn.microsoft.com/en-us/sysinternals/downloads/autoruns>
+- Sigcheck: <https://learn.microsoft.com/en-us/sysinternals/downloads/sigcheck>
+- Sysinternals Suite: <https://learn.microsoft.com/en-us/sysinternals/downloads/sysinternals-suite>
+
+After downloading, extract the tools into either of these folders:
 
 ```text
+Sysinternals\
 tools\sysinternals\autorunsc.exe
 tools\sysinternals\sigcheck.exe
 ```
 
-If present, their output is folded into the same HTML report. The project does not redistribute Sysinternals binaries.
+The audit automatically searches the `Sysinternals` and `tools\sysinternals` folders, including subfolders. For Autoruns, it chooses the best command-line binary for the current architecture in this order:
+
+- ARM64 Windows: `autorunsc64a.exe`, `autorunsc64.exe`, `autorunsc.exe`
+- 64-bit Windows: `autorunsc64.exe`, `autorunsc.exe`, `autorunsc64a.exe`
+- 32-bit Windows: `autorunsc.exe`, `autorunsc64.exe`, `autorunsc64a.exe`
+
+If present, Sysinternals output is folded into the same HTML report.
 
 ## Build a Standalone EXE
 

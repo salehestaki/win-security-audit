@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import platform
 from pathlib import Path
 
 from win_security_audit import powershell, utils
@@ -21,31 +22,33 @@ def collect(ctx: AuditContext) -> Section:
         section.add_finding("Sysinternals integration skipped by option", Status.INFO, severity=0)
         return section
 
-    tools_dir = _tools_dir(ctx.project_root)
-    autorunsc = _find_tool(tools_dir, "autorunsc.exe")
-    sigcheck = _find_tool(tools_dir, "sigcheck.exe")
+    tools_dirs = _tools_dirs(ctx.project_root)
+    autorunsc = _find_sysinternals_tool(tools_dirs, "autorunsc")
+    sigcheck = _find_sysinternals_tool(tools_dirs, "sigcheck")
     rows = []
 
     if autorunsc:
+        section.notes.append(f"Using Autorunsc: {autorunsc}")
         rows.extend(_run_autorunsc(section, autorunsc))
     else:
         section.add_finding(
             "Autorunsc not present",
             Status.INFO,
             severity=0,
-            description=f"Optional tool not found under {tools_dir}.",
-            recommendation="Place official Sysinternals autorunsc.exe in tools/sysinternals to enrich autorun data.",
+            description=f"Optional tool not found under: {', '.join(str(path) for path in tools_dirs)}.",
+            recommendation="Download Autoruns from Microsoft Sysinternals and extract autorunsc.exe, autorunsc64.exe, or autorunsc64a.exe under Sysinternals or tools/sysinternals.",
         )
 
     if sigcheck:
+        section.notes.append(f"Using Sigcheck: {sigcheck}")
         _run_sigcheck(section, sigcheck, ctx)
     else:
         section.add_finding(
             "Sigcheck not present",
             Status.INFO,
             severity=0,
-            description=f"Optional tool not found under {tools_dir}.",
-            recommendation="Place official Sysinternals sigcheck.exe in tools/sysinternals to enrich file signature data.",
+            description=f"Optional tool not found under: {', '.join(str(path) for path in tools_dirs)}.",
+            recommendation="Download Sigcheck from Microsoft Sysinternals and extract sigcheck.exe under Sysinternals or tools/sysinternals.",
         )
 
     if rows:
@@ -53,26 +56,64 @@ def collect(ctx: AuditContext) -> Section:
     return section
 
 
-def _tools_dir(project_root: Path) -> Path:
+def _tools_dirs(project_root: Path) -> list[Path]:
     candidates = [
+        Path.cwd() / "Sysinternals",
+        Path.cwd() / "sysinternals",
         project_root / "tools" / "sysinternals",
+        project_root / "tools" / "Sysinternals",
+        project_root / "Sysinternals",
+        project_root / "sysinternals",
         Path.cwd() / "tools" / "sysinternals",
-        Path.cwd(),
+        Path.cwd() / "tools" / "Sysinternals",
     ]
+    results = []
+    seen = set()
     for candidate in candidates:
+        try:
+            key = str(candidate.resolve()).lower()
+        except Exception:
+            key = str(candidate).lower()
+        if key in seen:
+            continue
+        seen.add(key)
         if candidate.exists():
-            return candidate
-    return project_root / "tools" / "sysinternals"
+            results.append(candidate)
+    if not results:
+        results.append(project_root / "tools" / "sysinternals")
+    return results
 
 
-def _find_tool(tools_dir: Path, name: str) -> Path | None:
-    direct = tools_dir / name
-    if direct.exists():
-        return direct
-    for path in tools_dir.glob(f"**/{name}"):
-        if path.is_file():
-            return path
+def _find_sysinternals_tool(tools_dirs: list[Path], base_name: str) -> Path | None:
+    names = _preferred_tool_names(base_name)
+    for tools_dir in tools_dirs:
+        for name in names:
+            direct = tools_dir / name
+            if direct.is_file():
+                return direct
+        matches = []
+        for path in tools_dir.glob("**/*.exe"):
+            if path.is_file() and path.stem.lower() in {Path(name).stem.lower() for name in names}:
+                matches.append(path)
+        if matches:
+            matches.sort(key=lambda path: names.index(path.name.lower()) if path.name.lower() in names else 99)
+            return matches[0]
     return None
+
+
+def _preferred_tool_names(base_name: str) -> list[str]:
+    machine = platform.machine().lower()
+    is_arm64 = "arm64" in machine or machine in {"aarch64", "arm"}
+    is_64bit = platform.architecture()[0] == "64bit"
+    base = base_name.lower()
+    if base == "sigcheck":
+        # Sysinternals currently ships Sigcheck as sigcheck.exe.
+        return ["sigcheck.exe"]
+    if is_arm64:
+        return [f"{base}64a.exe", f"{base}64.exe", f"{base}.exe"]
+    if is_64bit:
+        return [f"{base}64.exe", f"{base}.exe", f"{base}64a.exe"]
+    return [f"{base}.exe", f"{base}64.exe", f"{base}64a.exe"]
 
 
 def _run_autorunsc(section: Section, autorunsc: Path) -> list[dict]:
